@@ -1,0 +1,47 @@
+name: card_link_pro
+description: Digital business card
+publish_to: "none"
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI / Fonts
+  google_fonts: ^6.3.1
+
+  # Sharing / Links / Files
+  share_plus: ^11.1.0
+  url_launcher: ^6.3.2
+  path_provider: ^2.1.5
+
+  # QR
+  qr_flutter: ^4.1.0
+
+  # PDF
+  pdf: ^3.11.3
+  printing: ^5.14.2
+
+  # Storage
+  shared_preferences: ^2.2.3
+
+  # (Optional – you had it before; not required for this feature)
+  flutter_contacts: ^1.1.9+2
+  permission_handler: ^11.3.1
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    # keep flexible globs (these folders may contain your images)
+    - assets/images/
+    - assets/images/placeholders/background/
+    - assets/images/placeholders/profile/
