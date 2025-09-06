@@ -1,5 +1,4 @@
-// title=lib/models/profile.dart
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
 class Profile {
   final String name;
@@ -7,20 +6,33 @@ class Profile {
   final String phone;
   final String email;
   final String website;
+
+  // Address as multi-line string; stored and displayed exactly as edited
   final String address;
-  final String story;
+
+  // Socials (normalized https links)
+  final String whatsapp;
+  final String facebook;
+  final String xTwitter;
+  final String youtube;
+  final String instagram;
+  final String tiktok;
+  final String linkedin;
+  final String snapchat;
+  final String pinterest;
+
+  // Bank + About
   final String bankDetails;
+  final String about;
 
-  /// If this starts with 'color:<int>', we draw a solid color.
-  /// Otherwise it's an asset/file path for an image.
-  final String backgroundAsset;
-  final String avatarAsset;
+  // Avatar & background
+  final String avatarAssetOrPath;
+  final String backgroundAssetOrPath;
+  final bool usesImageBackground; // if false, use color
+  final int backgroundColorValue; // ARGB
 
-  /// For quick “brand” links: {label -> url}
-  final Map<String, String> links;
-
-  /// We keep the color value separately for convenience, too.
-  final int backgroundColorValue;
+  // For future extensibility (e.g., business/personal)
+  final bool isBusiness;
 
   const Profile({
     required this.name,
@@ -29,18 +41,23 @@ class Profile {
     required this.email,
     required this.website,
     required this.address,
-    required this.story,
+    required this.whatsapp,
+    required this.facebook,
+    required this.xTwitter,
+    required this.youtube,
+    required this.instagram,
+    required this.tiktok,
+    required this.linkedin,
+    required this.snapchat,
+    required this.pinterest,
     required this.bankDetails,
-    required this.backgroundAsset,
-    required this.avatarAsset,
+    required this.about,
+    required this.avatarAssetOrPath,
+    required this.backgroundAssetOrPath,
+    required this.usesImageBackground,
     required this.backgroundColorValue,
-    this.links = const {},
+    required this.isBusiness,
   });
-
-  /// Helpers used by screens
-  bool get usesImageBackground => !backgroundAsset.startsWith('color:');
-
-  Color get backgroundColor => Color(backgroundColorValue);
 
   Profile copyWith({
     String? name,
@@ -49,12 +66,22 @@ class Profile {
     String? email,
     String? website,
     String? address,
-    String? story,
+    String? whatsapp,
+    String? facebook,
+    String? xTwitter,
+    String? youtube,
+    String? instagram,
+    String? tiktok,
+    String? linkedin,
+    String? snapchat,
+    String? pinterest,
     String? bankDetails,
-    String? backgroundAsset,
-    String? avatarAsset,
-    Map<String, String>? links,
+    String? about,
+    String? avatarAssetOrPath,
+    String? backgroundAssetOrPath,
+    bool? usesImageBackground,
     int? backgroundColorValue,
+    bool? isBusiness,
   }) {
     return Profile(
       name: name ?? this.name,
@@ -63,40 +90,25 @@ class Profile {
       email: email ?? this.email,
       website: website ?? this.website,
       address: address ?? this.address,
-      story: story ?? this.story,
+      whatsapp: whatsapp ?? this.whatsapp,
+      facebook: facebook ?? this.facebook,
+      xTwitter: xTwitter ?? this.xTwitter,
+      youtube: youtube ?? this.youtube,
+      instagram: instagram ?? this.instagram,
+      tiktok: tiktok ?? this.tiktok,
+      linkedin: linkedin ?? this.linkedin,
+      snapchat: snapchat ?? this.snapchat,
+      pinterest: pinterest ?? this.pinterest,
       bankDetails: bankDetails ?? this.bankDetails,
-      backgroundAsset: backgroundAsset ?? this.backgroundAsset,
-      avatarAsset: avatarAsset ?? this.avatarAsset,
-      links: links ?? this.links,
+      about: about ?? this.about,
+      avatarAssetOrPath: avatarAssetOrPath ?? this.avatarAssetOrPath,
+      backgroundAssetOrPath:
+          backgroundAssetOrPath ?? this.backgroundAssetOrPath,
+      usesImageBackground: usesImageBackground ?? this.usesImageBackground,
       backgroundColorValue: backgroundColorValue ?? this.backgroundColorValue,
+      isBusiness: isBusiness ?? this.isBusiness,
     );
   }
-
-  factory Profile.defaultProfile() => const Profile(
-        name: 'Mariatou Ngum',
-        title: 'Professional Title SCA',
-        phone: '07736806367',
-        email: 'ngummariatou@gmail.com',
-        website: 'your-website.com',
-        address: 'Flat 72 Priory Court\n1 Cheltenham Road\nLondon\nSE 15 3BG',
-        story: '',
-        bankDetails: '',
-        backgroundAsset: 'assets/images/placeholders/background/bg1.jpg',
-        avatarAsset: 'assets/images/alkhadi.png',
-        backgroundColorValue: 0xFF111827,
-        // Tailwind slate-900-ish
-        links: {
-          'WhatsApp': 'whatsapp.com',
-          'Facebook': 'facebook.com',
-          'Twitter X': 'x.com',
-          'YouTube': 'youtube.com',
-          'Instagram': 'instagram.com',
-          'TikTok': 'tiktok.com',
-          'LinkedIn': 'linkedin.com',
-          'Snapchat': 'snapchat.com',
-          'Pinterest': 'pinterest.com',
-        },
-      );
 
   Map<String, dynamic> toMap() => {
         'name': name,
@@ -105,29 +117,83 @@ class Profile {
         'email': email,
         'website': website,
         'address': address,
-        'story': story,
+        'whatsapp': whatsapp,
+        'facebook': facebook,
+        'xTwitter': xTwitter,
+        'youtube': youtube,
+        'instagram': instagram,
+        'tiktok': tiktok,
+        'linkedin': linkedin,
+        'snapchat': snapchat,
+        'pinterest': pinterest,
         'bankDetails': bankDetails,
-        'backgroundAsset': backgroundAsset,
-        'avatarAsset': avatarAsset,
+        'about': about,
+        'avatarAssetOrPath': avatarAssetOrPath,
+        'backgroundAssetOrPath': backgroundAssetOrPath,
+        'usesImageBackground': usesImageBackground,
         'backgroundColorValue': backgroundColorValue,
-        'links': links,
+        'isBusiness': isBusiness,
       };
 
-  factory Profile.fromMap(Map<String, dynamic> map) => Profile(
-        name: (map['name'] ?? '') as String,
-        title: (map['title'] ?? '') as String,
-        phone: (map['phone'] ?? '') as String,
-        email: (map['email'] ?? '') as String,
-        website: (map['website'] ?? '') as String,
-        address: (map['address'] ?? '') as String,
-        story: (map['story'] ?? '') as String,
-        bankDetails: (map['bankDetails'] ?? '') as String,
-        backgroundAsset: (map['backgroundAsset'] ??
-            'assets/images/placeholders/background/bg1.jpg') as String,
-        avatarAsset:
-            (map['avatarAsset'] ?? 'assets/images/alkhadi.png') as String,
-        backgroundColorValue:
-            (map['backgroundColorValue'] ?? 0xFF111827) as int,
-        links: Map<String, String>.from(map['links'] ?? const {}),
-      );
+  factory Profile.fromMap(Map<String, dynamic> map) {
+    // Backward compatible defaults
+    return Profile(
+      name: (map['name'] ?? '').toString(),
+      title: (map['title'] ?? '').toString(),
+      phone: (map['phone'] ?? '').toString(),
+      email: (map['email'] ?? '').toString(),
+      website: (map['website'] ?? '').toString(),
+      address: (map['address'] ?? '').toString(),
+      whatsapp: (map['whatsapp'] ?? '').toString(),
+      facebook: (map['facebook'] ?? '').toString(),
+      xTwitter: (map['xTwitter'] ?? map['twitter'] ?? '').toString(),
+      youtube: (map['youtube'] ?? '').toString(),
+      instagram: (map['instagram'] ?? '').toString(),
+      tiktok: (map['tiktok'] ?? '').toString(),
+      linkedin: (map['linkedin'] ?? '').toString(),
+      snapchat: (map['snapchat'] ?? '').toString(),
+      pinterest: (map['pinterest'] ?? '').toString(),
+      bankDetails: (map['bankDetails'] ?? '').toString(),
+      about: (map['about'] ?? '').toString(),
+      avatarAssetOrPath:
+          (map['avatarAssetOrPath'] ?? 'assets/images/mariatou.png').toString(),
+      backgroundAssetOrPath:
+          (map['backgroundAssetOrPath'] ?? 'assets/images/amz.jpg').toString(),
+      usesImageBackground: (map['usesImageBackground'] ?? true) as bool,
+      backgroundColorValue: (map['backgroundColorValue'] ?? 0xFF111827) as int,
+      isBusiness: (map['isBusiness'] ?? true) as bool,
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Profile.fromJson(String source) =>
+      Profile.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  static Profile defaultProfile() {
+    return const Profile(
+      name: 'Mariatou Ngum',
+      title: 'Professional Title SCA',
+      phone: '07736806367',
+      email: 'ngummariatou@gmail.com',
+      website: 'https://your-website.com',
+      address: 'Flat 72 Priory Court\n1 Cheltenham Road\nLondon\nSE 15 3BG',
+      whatsapp: 'https://whatsapp.com',
+      facebook: 'https://facebook.com',
+      xTwitter: 'https://x.com',
+      youtube: 'https://youtube.com',
+      instagram: 'https://instagram.com',
+      tiktok: 'https://tiktok.com',
+      linkedin: 'https://linkedin.com',
+      snapchat: 'https://snapchat.com',
+      pinterest: 'https://pinterest.com',
+      bankDetails: 'Ac number: 93087283   Sc Code: 09-01-35',
+      about: 'This is a short bio about yourself. Tell your story here.',
+      avatarAssetOrPath: 'assets/images/mariatou.png',
+      backgroundAssetOrPath: 'assets/images/amz.jpg',
+      usesImageBackground: true,
+      backgroundColorValue: 0xFF111827,
+      isBusiness: true,
+    );
+  }
 }
