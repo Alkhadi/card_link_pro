@@ -16,12 +16,9 @@
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:windowSoftInputMode="adjustResize">
-
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
-
-            <!-- Launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -39,7 +36,7 @@
                     android:scheme="cardlink" />
             </intent-filter>
 
-            <!-- Optional HTTPS deep link host (adjust host if you use one) -->
+            <!-- Optional HTTPS deep link host (adjust for your hosting) -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -61,7 +58,7 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
-    <!-- Optional: declare the apps you intend to query -->
+    <!-- (Optional) For picking images -->
     <queries>
         <intent>
             <action android:name="android.intent.action.SENDTO" />

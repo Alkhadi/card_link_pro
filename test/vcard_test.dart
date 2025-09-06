@@ -13,11 +13,14 @@ void main() {
       website: 'example.com',
       address: '1 Main St',
       story: '',
-      backgroundAsset: 'assets/images/placeholders/background/bg1.jpg',
-      avatarAsset: 'assets/images/placeholders/profile/alkhadi.png',
+      bankDetails: '',
+      backgroundAsset: 'assets/images/placeholders/background/bg2.jpg',
+      avatarAsset: 'assets/images/alkhadi.png',
+      backgroundColorValue: 0xFF111827,
+      links: const {},
     );
     final vcf = String.fromCharCodes(ShareBundleService.buildVCard(p));
-    expect(vcf.contains('FN:Jane Doe'), true);
-    expect(vcf.contains('EMAIL;TYPE=INTERNET:jane@example.com'), true);
+    expect(vcf.contains('FN:Jane Doe'), isTrue);
+    expect(vcf.contains('EMAIL;TYPE=INTERNET:jane@example.com'), isTrue);
   });
 }

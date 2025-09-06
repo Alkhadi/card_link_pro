@@ -1,9 +1,8 @@
-// lib/widgets/qr_share_sheet.dart
+// title=lib/widgets/qr_share_sheet.dart
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/profile.dart';
 import '../services/link_utils.dart';
@@ -14,9 +13,9 @@ class QrShareSheet extends StatefulWidget {
     super.key,
     required this.profile,
     required this.avatarProvider,
-    required this.shareLink,
-    this.qrBoundary, // optional capture target
-    this.cardBoundary, // optional capture target
+    this.shareLink,
+    this.qrBoundary, // optional capture target (QR only)
+    this.cardBoundary, // optional capture target (profile card)
   });
 
   final Profile profile;
@@ -31,10 +30,8 @@ class QrShareSheet extends StatefulWidget {
 
 class _QrShareSheetState extends State<QrShareSheet> {
   final GlobalKey _internalQrKey = GlobalKey();
-  final GlobalKey _internalCardKey = GlobalKey();
 
   GlobalKey get _qrKey => widget.qrBoundary ?? _internalQrKey;
-  GlobalKey get _cardKey => widget.cardBoundary ?? _internalCardKey;
 
   String get _payload {
     // Prefer a normalized short link if present; otherwise MECARD
@@ -69,26 +66,16 @@ class _QrShareSheetState extends State<QrShareSheet> {
     );
   }
 
-  Future<void> _downloadQrImage() async {
-    await ShareBundleService.shareImageFromKey(
-      _qrKey,
-      fileName: 'CardLink_QR.png',
-    );
-  }
-
   Future<void> _shareBundlePdf() async {
     await ShareBundleService.shareBundle(
       profile: widget.profile,
-      qrBoundary: _qrKey,
-      cardBoundary: _cardKey,
-      shortLink: normalizeUrl(widget.shareLink),
-      text: 'My CardLink',
+      cardBoundary: widget.cardBoundary,
+      text: 'My CardLink Pro Profile',
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
     return SafeArea(
@@ -116,14 +103,14 @@ class _QrShareSheetState extends State<QrShareSheet> {
                       version: QrVersions.auto,
                       size: 250,
                       backgroundColor: Colors.white,
-                      // Match your blue style
-                      eyeStyle: QrEyeStyle(
+                      // Black squares & dots; avatar in the middle
+                      eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
-                        color: cs.primary,
+                        color: Colors.black,
                       ),
-                      dataModuleStyle: QrDataModuleStyle(
+                      dataModuleStyle: const QrDataModuleStyle(
                         dataModuleShape: QrDataModuleShape.circle,
-                        color: cs.primary,
+                        color: Colors.black,
                       ),
                       embeddedImage: widget.avatarProvider,
                       embeddedImageStyle:
@@ -159,33 +146,6 @@ class _QrShareSheetState extends State<QrShareSheet> {
                 title: 'Share QR Code',
                 subtitle: 'Share through messaging apps or social media',
                 onTap: _shareQrImage,
-              ),
-              _tile(
-                icon: Icons.download_outlined,
-                title: 'Download QR Code',
-                subtitle: 'Download and save the QR code image',
-                onTap: _downloadQrImage,
-              ),
-              _tile(
-                icon: Icons.mail_outline,
-                title: 'Email My CardLink',
-                subtitle: 'Send via email to your contacts',
-                onTap: () async {
-                  final link = normalizeUrl(widget.shareLink) ?? '';
-                  if (link.isEmpty) return;
-                  final uri = mailtoUri('', subject: 'My CardLink', body: link);
-                  await launchUrl(uri);
-                },
-              ),
-              _tile(
-                icon: Icons.sms_outlined,
-                title: 'SMS My CardLink',
-                subtitle: 'Send via text message to your contacts',
-                onTap: () async {
-                  final link = normalizeUrl(widget.shareLink) ?? '';
-                  if (link.isEmpty) return;
-                  await launchUrl(smsUri(link));
-                },
               ),
               const SizedBox(height: 8),
             ],

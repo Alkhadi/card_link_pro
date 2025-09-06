@@ -1,230 +1,149 @@
-// lib/screens/profile_screen.dart
-import 'dart:io' show File;
+// title=lib/screens/profile_screen.dart
+import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/profile.dart';
-import '../services/link_utils.dart';
+import '../services/preferences_service.dart';
 import '../widgets/profile_card.dart';
 import '../widgets/qr_share_sheet.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
-
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late Profile _profile;
-
-  final GlobalKey _cardKey = GlobalKey(); // RepaintBoundary for capture
-  final GlobalKey _qrKey = GlobalKey();
+  final _prefs = PreferencesService();
+  Profile? _p;
+  final _cardKey = GlobalKey(); // for image capture in share sheet
 
   @override
   void initState() {
     super.initState();
-    _profile = Profile.defaultProfile();
+    _load();
   }
 
-  void _openQrSheet() {
+  Future<void> _load() async {
+    final loaded = await _prefs.loadProfile();
+    if (!mounted) return;
+    setState(() => _p = loaded);
+  }
+
+  ImageProvider _bgProvider(Profile p) {
+    if (p.usesImageBackground) {
+      if (p.backgroundAsset.startsWith('/')) {
+        return FileImage(File(p.backgroundAsset));
+      }
+      return AssetImage(p.backgroundAsset);
+    }
+    return const AssetImage(''); // not used when color mode
+  }
+
+  ImageProvider _avatarProvider(Profile p) {
+    if (p.avatarAsset.startsWith('/')) {
+      return FileImage(File(p.avatarAsset));
+    }
+    return AssetImage(p.avatarAsset);
+  }
+
+  void _openShare() {
+    final p = _p!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => QrShareSheet(
-        profile: _profile,
-        avatarProvider: _avatarProvider(),
-        shareLink: _profile.website,
-        qrBoundary: _qrKey,
+        profile: p,
+        avatarProvider: _avatarProvider(p),
+        shareLink: null, // no web URL; we share image/PDF
         cardBoundary: _cardKey,
       ),
     );
   }
 
-  ImageProvider _avatarProvider() {
-    try {
-      if (_profile.avatarAsset.startsWith('/')) {
-        return FileImage(File(_profile.avatarAsset));
-      }
-      return AssetImage(_profile.avatarAsset);
-    } catch (_) {
-      return const AssetImage(''); // will show icon instead
-    }
-  }
-
-  Widget _background() {
-    // load asset or fallback gradient
-    return FutureBuilder(
-      future: Future(() {
-        if (_profile.backgroundAsset.startsWith('/')) {
-          return File(_profile.backgroundAsset).exists();
-        }
-        return true;
-      }),
-      builder: (ctx, snap) {
-        // Fill screen
-        return Positioned.fill(
-          child: (snap.hasData && snap.data == true)
-              ? Image(
-                  image: _profile.backgroundAsset.startsWith('/')
-                      ? FileImage(File(_profile.backgroundAsset))
-                      : AssetImage(_profile.backgroundAsset) as ImageProvider,
-                  fit: BoxFit.cover,
-                )
-              : Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF1F2937), Color(0xFF0F172A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-        );
-      },
-    );
+  Future<void> _openEdit() async {
+    final p = _p!;
+    await Navigator.of(context).pushNamed('/edit', arguments: p);
+    final updated = await _prefs.loadProfile();
+    if (!mounted) return;
+    setState(() => _p = updated);
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
+    if (_p == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
+    final p = _p!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('CardLink Pro'),
         actions: [
-          IconButton(
-            tooltip: 'Open website',
-            icon: const Icon(Icons.language),
-            onPressed: () {
-              final nu = normalizeUrl(_profile.website);
-              if (nu != null) launchUrl(Uri.parse(nu));
-            },
-          ),
-          IconButton(
-            tooltip: 'Share / QR',
-            icon: const Icon(Icons.share_outlined),
-            onPressed: _openQrSheet,
-          ),
+          IconButton(icon: const Icon(Icons.ios_share), onPressed: _openShare),
         ],
       ),
       body: Stack(
         children: [
-          _background(),
-
-          // Centered, responsive card
+          // Background (image or color)
           Positioned.fill(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Center(
-                child: RepaintBoundary(
-                  key: _cardKey,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: ProfileCard(profile: _profile),
-                  ),
+            child: p.usesImageBackground
+                ? Image(image: _bgProvider(p), fit: BoxFit.cover)
+                : ColoredBox(color: p.backgroundColor),
+          ),
+          // Tint so white text pops (like your PDF)
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.15)),
+          ),
+
+          // Profile content (capturable)
+          SafeArea(
+            child: RepaintBoundary(
+              key: _cardKey,
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ProfileCard(profile: p),
+              ),
+            ),
+          ),
+
+          // Bank details bottom pill (if provided)
+          if (p.bankDetails.trim().isNotEmpty)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Text(
+                  // Rendered separately from the card; the card itself has a “story” area.
+                  // If you prefer to show the bank on the card instead, move this into ProfileCard.
+                  ' ', // (content already on the card if you use it there)
+                  style: TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ),
+            ),
+
+          // Floating Edit
+          Positioned(
+            right: 16,
+            bottom: 84,
+            child: FloatingActionButton.extended(
+              onPressed: _openEdit,
+              icon: const Icon(Icons.edit),
+              label: const Text('Edit'),
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          // Minimal inline editor (quick edit)
-          final updated = await showDialog<Profile>(
-            context: context,
-            builder: (ctx) => _EditDialog(profile: _profile),
-          );
-          if (updated != null) setState(() => _profile = updated);
-        },
-        icon: const Icon(Icons.edit),
-        label: Text('Edit', style: text.labelLarge),
-      ),
-    );
-  }
-}
-
-class _EditDialog extends StatefulWidget {
-  const _EditDialog({required this.profile});
-  final Profile profile;
-
-  @override
-  State<_EditDialog> createState() => _EditDialogState();
-}
-
-class _EditDialogState extends State<_EditDialog> {
-  late final TextEditingController name =
-      TextEditingController(text: widget.profile.name);
-  late final TextEditingController title =
-      TextEditingController(text: widget.profile.title);
-  late final TextEditingController phone =
-      TextEditingController(text: widget.profile.phone);
-  late final TextEditingController email =
-      TextEditingController(text: widget.profile.email);
-  late final TextEditingController website =
-      TextEditingController(text: widget.profile.website);
-  late final TextEditingController address =
-      TextEditingController(text: widget.profile.address);
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return AlertDialog(
-      title: const Text('Edit profile'),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Name')),
-            TextField(
-                controller: title,
-                decoration: const InputDecoration(labelText: 'Title')),
-            TextField(
-                controller: phone,
-                decoration: const InputDecoration(labelText: 'Phone')),
-            TextField(
-                controller: email,
-                decoration: const InputDecoration(labelText: 'Email')),
-            TextField(
-                controller: website,
-                decoration: const InputDecoration(labelText: 'Website')),
-            TextField(
-              controller: address,
-              decoration: const InputDecoration(labelText: 'Address'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 8),
-            Text('Background/Avatar can be swapped by replacing asset files.',
-                style: text.bodySmall),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            final p = widget.profile.copyWith(
-              name: name.text.trim(),
-              title: title.text.trim(),
-              phone: phone.text.trim(),
-              email: email.text.trim(),
-              website: website.text.trim(),
-              address: address.text.trim(),
-            );
-            Navigator.pop(context, p);
-          },
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

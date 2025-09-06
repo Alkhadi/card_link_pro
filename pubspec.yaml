@@ -11,6 +11,8 @@ dependencies:
 
   # UI / Fonts
   google_fonts: ^6.3.1
+  flutter_colorpicker: ^1.0.3   # add this (for the background color picker)
+
 
   # Sharing / Links / Files
   share_plus: ^11.1.0
@@ -30,6 +32,8 @@ dependencies:
   # (Optional – you had it before; not required for this feature)
   flutter_contacts: ^1.1.9+2
   permission_handler: ^11.3.1
+  image_picker: ^1.1.2
+
 
 
 dev_dependencies:

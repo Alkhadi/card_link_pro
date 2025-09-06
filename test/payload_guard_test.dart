@@ -15,8 +15,11 @@ void main() {
       website: '',
       address: 'C' * 500,
       story: '',
-      backgroundAsset: 'assets/images/placeholders/background/bg1.jpg',
-      avatarAsset: 'assets/images/placeholders/profile/alkhadi.png',
+      bankDetails: '',
+      backgroundAsset: 'assets/images/placeholders/background/bg2.jpg',
+      avatarAsset: 'assets/images/alkhadi.png',
+      backgroundColorValue: 0xFF111827,
+      links: const {},
     );
 
     final qrKey = GlobalKey();
@@ -27,9 +30,7 @@ void main() {
         home: Scaffold(
           body: QrShareSheet(
             profile: p,
-            avatarProvider: const AssetImage(
-              'assets/images/placeholders/profile/alkhadi.png',
-            ),
+            avatarProvider: const AssetImage('assets/images/alkhadi.png'),
             shareLink: null,
             qrBoundary: qrKey,
             cardBoundary: cardKey,

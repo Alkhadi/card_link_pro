@@ -1,5 +1,4 @@
 // title=lib/services/share_bundle_service.dart
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -45,45 +44,60 @@ class ShareBundleService {
 
   static Future<void> shareImageFromKey(
     GlobalKey key, {
-    String fileName = 'image.png',
+    String fileName = 'profile.png',
     String? text,
   }) async {
     final bytes = await captureWidgetPng(key);
     if (bytes == null) return;
     final file = await _writeTemp(bytes, fileName);
-    await Share.shareXFiles([XFile(file.path)], text: text);
+    await Share.shareXFiles([XFile(file.path)],
+        text: text ?? 'My CardLink Pro Profile');
   }
 
-  /// Generate PDF and share it via platform share sheet.
+  /// Generate PDF and share via platform share sheet.
   static Future<void> shareProfilePdf(Profile p, {String? text}) async {
     final bytes = await PdfGenerator.build(p);
     final file = await _writeTemp(bytes, 'CardLink_${p.name}.pdf');
-    await Share.shareXFiles([XFile(file.path)], text: text ?? 'My CardLink');
+    await Share.shareXFiles([XFile(file.path)],
+        text: text ?? 'My CardLink Pro Profile');
   }
 
-  /// Bundle → currently: just PDF (kept expand‑able).
+  /// Bundle – shares PDF and (optionally) a captured PNG of the on-screen card.
   static Future<void> shareBundle({
     required Profile profile,
-    GlobalKey? qrBoundary,
     GlobalKey? cardBoundary,
-    String? shortLink,
     String? text,
   }) async {
-    await shareProfilePdf(profile, text: text ?? 'My CardLink');
+    final files = <XFile>[];
+
+    // PDF
+    final pdfBytes = await PdfGenerator.build(profile);
+    final pdfFile = await _writeTemp(pdfBytes, 'CardLink_${profile.name}.pdf');
+    files.add(XFile(pdfFile.path));
+
+    // Optional image
+    if (cardBoundary != null) {
+      final png = await captureWidgetPng(cardBoundary);
+      if (png != null) {
+        final imgFile = await _writeTemp(png, 'CardLink_${profile.name}.png');
+        files.add(XFile(imgFile.path));
+      }
+    }
+
+    await Share.shareXFiles(files, text: text ?? 'My CardLink Pro Profile');
   }
 
-  /// Copy a link to clipboard and optionally show a snackbar.
+  /// Copy a link to clipboard.
   static Future<void> copyLink(String link, {BuildContext? context}) async {
     await Clipboard.setData(ClipboardData(text: link));
-    final ctx = context;
-    if (ctx != null && ctx.mounted) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Link copied to clipboard')),
       );
     }
   }
 
-  /// Build a vCard (VCF) for a Profile – used by tests and optional share.
+  /// Build vCard (.vcf) for the profile.
   static List<int> buildVCard(Profile p) {
     final parts = p.name.trim().split(' ');
     final surname = parts.length > 1 ? parts.last : '';
@@ -104,6 +118,6 @@ class ShareBundleService {
       ..writeln('NOTE:${p.story}')
       ..writeln('END:VCARD');
 
-    return utf8.encode(buffer.toString());
+    return buffer.toString().codeUnits;
   }
 }

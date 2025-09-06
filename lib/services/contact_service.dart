@@ -12,7 +12,6 @@ class ContactService {
       status = await Permission.contacts.request();
     }
     if (!status.isGranted) {
-      // FlutterContacts also exposes a request; double-check.
       final ok = await FlutterContacts.requestPermission();
       if (!ok) return false;
     }
@@ -34,18 +33,17 @@ class ContactService {
 
     final c = Contact()
       ..name = Name(first: firstName.trim(), last: lastName.trim());
-
-    if (phone != null && phone.trim().isNotEmpty) {
-      c.phones = [Phone(phone.trim(), label: PhoneLabel.mobile)];
+    if ((phone ?? '').trim().isNotEmpty) {
+      c.phones = [Phone(phone!.trim(), label: PhoneLabel.mobile)];
     }
-    if (email != null && email.trim().isNotEmpty) {
-      c.emails = [Email(email.trim(), label: EmailLabel.work)];
+    if ((email ?? '').trim().isNotEmpty) {
+      c.emails = [Email(email!.trim(), label: EmailLabel.work)];
     }
-    if (address != null && address.trim().isNotEmpty) {
-      c.addresses = [Address(address.trim(), label: AddressLabel.home)];
+    if ((address ?? '').trim().isNotEmpty) {
+      c.addresses = [Address(address!.trim(), label: AddressLabel.home)];
     }
-    if (jobTitle != null && jobTitle.trim().isNotEmpty) {
-      c.organizations = [Organization(title: jobTitle.trim())];
+    if ((jobTitle ?? '').trim().isNotEmpty) {
+      c.organizations = [Organization(title: jobTitle!.trim())];
     }
 
     await FlutterContacts.insertContact(c);
@@ -57,9 +55,7 @@ class ContactService {
     if (!await svc._ensureContactsPermission()) return;
 
     final all = await FlutterContacts.getContacts(withProperties: true);
-    all.sort(
-      (a, b) => (a.displayName).compareTo(b.displayName),
-    );
+    all.sort((a, b) => (a.displayName).compareTo(b.displayName));
     final searchCtrl = TextEditingController();
     var filtered = List<Contact>.of(all);
 

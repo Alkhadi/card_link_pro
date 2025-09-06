@@ -12,15 +12,22 @@ class ProfileCard extends StatelessWidget {
 
   final Profile profile;
 
-  Future<void> _open(String uri) async {
-    final u = normalizeUrl(uri) ?? uri;
-    final parsed = Uri.tryParse(u) ?? Uri.parse('https://$u');
-    await launchUrl(parsed, mode: LaunchMode.externalApplication);
+  Future<void> _open(String url) async {
+    final uri = Uri.tryParse(normalizeUrl(url) ?? url);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openMaps(String address) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
     Widget avatar() {
@@ -32,172 +39,126 @@ class ProfileCard extends StatelessWidget {
           provider = AssetImage(profile.avatarAsset);
         }
       } catch (_) {
-        provider = const AssetImage(''); // will fall back to Icon below
+        provider =
+            const AssetImage('assets/images/placeholders/profile/alkhadi.png');
       }
-
       return CircleAvatar(
-        radius: 28,
-        backgroundColor: cs.surface.withValues(alpha: 0.3),
-        foregroundImage: provider,
-        child: const Icon(Icons.person, size: 32),
+        radius: 48,
+        backgroundImage: provider,
+        backgroundColor: Colors.black.withOpacity(0.3),
       );
     }
 
-    Widget chipIcon(IconData icon, String label, {VoidCallback? onTap}) {
-      return InkWell(
-        onTap: onTap,
-        child: Container(
+    Widget blackBox(Widget child) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.75),
-            borderRadius: BorderRadius.circular(24),
+            color: Colors.black.withOpacity(0.75),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
+          child: child,
+        );
+
+    Widget linkChip(IconData icon, String label, VoidCallback onTap) {
+      return InkWell(
+        onTap: onTap,
+        child: blackBox(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Text(label,
-                  style: text.bodyMedium?.copyWith(color: Colors.white)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: text.bodyMedium?.copyWith(color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
       );
     }
 
-    List<Widget> linkList() {
-      final items = <Widget>[];
-      if (profile.website.isNotEmpty) {
-        items.add(chipIcon(Icons.language, 'https://${profile.website}',
-            onTap: () => _open(profile.website)));
-      }
-      if (profile.phone.isNotEmpty) {
-        items.add(chipIcon(Icons.phone, profile.phone,
-            onTap: () => launchUrl(telUri(profile.phone))));
-      }
-      if (profile.email.isNotEmpty) {
-        items.add(chipIcon(Icons.mail, profile.email,
-            onTap: () => launchUrl(mailtoUri(profile.email))));
-      }
-      for (final e in profile.links.entries) {
-        items.add(chipIcon(serviceIconForUrl(e.value), '${e.key}: ${e.value}',
-            onTap: () => _open(e.value)));
-      }
-      return items;
-    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          avatar(),
+          const SizedBox(height: 12),
+          blackBox(Text(
+            profile.name,
+            style: text.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          )),
+          const SizedBox(height: 8),
+          blackBox(Text(
+            profile.title,
+            style: text.bodyMedium?.copyWith(color: Colors.white),
+          )),
+          const SizedBox(height: 16),
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 360,
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Card top area (name/title/avatar + address bubble)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Avatar + name
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          avatar(),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.75),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    profile.name,
-                                    style: text.titleLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.75),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    profile.title,
-                                    style: text.labelLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                // Address bubble on the right
-                if (profile.address.isNotEmpty)
-                  Container(
-                    width: 150,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      profile.address,
-                      style: text.bodySmall?.copyWith(color: Colors.white),
-                    ),
-                  ),
-              ],
+          // Address
+          if (profile.address.isNotEmpty)
+            InkWell(
+              onTap: () => _openMaps(profile.address),
+              child: blackBox(Text(
+                profile.address,
+                textAlign: TextAlign.center,
+                style: text.bodyMedium?.copyWith(color: Colors.white),
+              )),
             ),
 
-            const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-            // Contact / Link chips as a column
-            Wrap(
-              runSpacing: 10,
-              spacing: 10,
-              children: linkList(),
-            ),
+          // Contact Info
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              if (profile.phone.isNotEmpty)
+                linkChip(Icons.phone, profile.phone, () {
+                  launchUrl(Uri.parse("tel:${profile.phone}"));
+                }),
+              if (profile.email.isNotEmpty)
+                linkChip(Icons.email, profile.email, () {
+                  launchUrl(Uri.parse("mailto:${profile.email}"));
+                }),
+              if (profile.website.isNotEmpty)
+                linkChip(Icons.language, profile.website, () {
+                  _open(profile.website);
+                }),
+            ],
+          ),
 
-            const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-            if (profile.story.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  profile.story,
-                  style: text.bodyMedium?.copyWith(color: Colors.white),
-                ),
-              ),
-          ],
-        ),
+          // Social Links
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: profile.links.entries.map((e) {
+              return linkChip(serviceIconForUrl(e.value), e.key, () {
+                _open(e.value);
+              });
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Bank Details
+          if (profile.bankDetails.isNotEmpty)
+            blackBox(Text(
+              profile.bankDetails,
+              textAlign: TextAlign.center,
+              style: text.bodyMedium?.copyWith(color: Colors.white),
+            )),
+        ],
       ),
     );
   }

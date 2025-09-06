@@ -53,8 +53,7 @@
 
         <!-- Permissions used by image picker, QR save, and contact save -->
         <key>NSContactsUsageDescription</key>
-        <string>CardLink Pro needs access to your Contacts to save a contact you create or share.
-        </string>
+        <string>CardLink Pro needs access to save new contacts.</string>
         <key>NSCameraUsageDescription</key>
         <string>CardLink Pro uses the camera to take a profile or background photo.</string>
         <key>NSPhotoLibraryUsageDescription</key>
