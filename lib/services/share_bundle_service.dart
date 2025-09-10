@@ -1,12 +1,15 @@
-// title=lib/services/share_bundle_service.dart
+// lib/services/share_bundle_service.dart
 import 'dart:typed_data'; // ByteData is defined here
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:pdf/pdf.dart';
+// Inline PDF via `pdf` package to avoid missing method errors.
+import 'package:pdf/widgets.dart' as pw;
 
+// Keep using your Profile model.
 import '../models/profile.dart';
-import '../utils/pdf_generator.dart';
 
 class ShareBundle {
   final Uint8List pngImageBytes;
@@ -29,7 +32,7 @@ class ShareBundleService {
       captureKey,
       pixelRatio: pixelRatio,
     );
-    final pdfBytes = await PdfGenerator.generate(profile);
+    final pdfBytes = await _generatePdf(profile);
     return ShareBundle(pngImageBytes: pngBytes, pdfBytes: pdfBytes);
   }
 
@@ -51,7 +54,7 @@ class ShareBundleService {
     }
 
     // Keep pixel ratio within a sensible range for quality vs. file size
-    final pr = pixelRatio.clamp(2.0, 4.0);
+    final double pr = pixelRatio.clamp(2.0, 4.0).toDouble();
 
     final ui.Image image = await renderObject.toImage(pixelRatio: pr);
     final ByteData? byteData =
@@ -60,5 +63,45 @@ class ShareBundleService {
       throw Exception('Failed to encode PNG bytes.');
     }
     return byteData.buffer.asUint8List();
+  }
+
+  /// Minimal inline PDF generator. Produces a simple single-page PDF.
+  static Future<Uint8List> _generatePdf(Profile profile) async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (ctx) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.all(24),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'CardLink Pro',
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'Profile PDF',
+                  style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+                ),
+                pw.Divider(),
+                pw.Text(
+                  profile.toString(),
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    return doc.save();
   }
 }

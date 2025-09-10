@@ -1,66 +1,69 @@
 import 'package:flutter/material.dart';
 
-/// A generic bottom sheet for collecting a single piece of text input (e.g.,
-/// an email address). Calls [onSubmit] when the user taps send.
+/// A simple bottom sheet to collect an input (e.g., email or phone number) and
+/// invoke a callback when submitted. The [modeLabel] is displayed as the
+/// heading of the sheet.
 class SendToSheet extends StatefulWidget {
   const SendToSheet(
-      {super.key, required this.onSubmit, this.modeLabel = 'Email'});
+      {super.key, required this.modeLabel, required this.onSubmit});
 
-  final Future<void> Function(String) onSubmit;
   final String modeLabel;
+  final Future<void> Function(String) onSubmit;
 
   @override
   State<SendToSheet> createState() => _SendToSheetState();
 }
 
 class _SendToSheetState extends State<SendToSheet> {
-  final _c = TextEditingController();
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    _c.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SafeArea(
       child: Padding(
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Wrap(
-            runSpacing: 12,
-            children: [
-              Text('Enter ${widget.modeLabel}',
-                  style: Theme.of(context).textTheme.titleMedium),
-              TextField(
-                controller: _c,
-                keyboardType: widget.modeLabel.toLowerCase().contains('email')
-                    ? TextInputType.emailAddress
-                    : TextInputType.text,
-                decoration: InputDecoration(
-                  hintText: widget.modeLabel,
-                ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Send via ${widget.modeLabel}',
+                style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              keyboardType: widget.modeLabel.toLowerCase() == 'email'
+                  ? TextInputType.emailAddress
+                  : TextInputType.text,
+              decoration: InputDecoration(
+                labelText: widget.modeLabel,
               ),
-              Row(
-                children: [
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () async {
-                      final v = _c.text.trim();
-                      if (v.isEmpty) return;
-                      await widget.onSubmit(v);
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Send'),
-                  ),
-                ],
-              )
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: () async {
+                  final input = _controller.text.trim();
+                  if (input.isEmpty) return;
+                  await widget.onSubmit(input);
+                  if (!mounted) return;
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Send'),
+              ),
+            ),
+          ],
         ),
       ),
     );

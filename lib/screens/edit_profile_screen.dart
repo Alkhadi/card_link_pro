@@ -1,17 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/profile.dart';
 import '../services/profile_store.dart';
-import '../services/share_service.dart';
+import '../utils/image_provider_x.dart';
+import '../widgets/image_picker_sheet.dart';
 
-/// A form-driven screen to edit all aspects of the user’s profile. Allows
-/// selecting avatar, background (image or color), editing text fields and
-/// previewing the formatted text share output.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -21,337 +15,183 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late Profile _p;
-  final _form = GlobalKey<FormState>();
-  bool _showTextPreview = false;
+
+  // Bundled images (match your pubspec.yaml)
+  static const _avatarAssets = <String>[
+    'assets/images/avatars/alkhadi.png',
+    'assets/images/avatars/mariatou.png',
+    'assets/images/avatars/avatar_business.png',
+  ];
+
+  static const _backgroundAssets = <String>[
+    'assets/images/backgrounds/amz.jpg',
+    'assets/images/backgrounds/abstract_wave.jpg',
+    'assets/images/backgrounds/gradient_sky.jpg',
+    'assets/images/backgrounds/gradient_sand.jpg',
+    'assets/images/backgrounds/pattern_dots.jpg',
+    'assets/images/backgrounds/texture_paper.jpg',
+    'assets/images/backgrounds/city_soft.jpg',
+  ];
+
+  final _name = TextEditingController();
+  final _title = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _website = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _p = context.read<ProfileStore>().profile;
+    final store = context.read<ProfileStore>();
+    _p = store.profile;
+    _name.text = _p.name;
+    _title.text = _p.title;
+    _phone.text = _p.phone;
+    _email.text = _p.email;
+    _website.text = _p.website;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _title.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _website.dispose();
+    super.dispose();
   }
 
   Future<void> _pickAvatar() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (!mounted) return;
-    if (file != null) {
-      setState(() {
-        _p = _p.copyWith(avatarAssetOrPath: file.path);
-      });
-    }
-  }
-
-  Future<void> _pickBackgroundImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (!mounted) return;
-    if (file != null) {
-      setState(() {
-        _p = _p.copyWith(
-          backgroundAssetOrPath: file.path,
-          usesImageBackground: true,
-        );
-      });
-    }
-  }
-
-  Future<void> _pickBackgroundColor() async {
-    Color selected = Color(_p.backgroundColorValue);
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text('Pick background color',
-              style: TextStyle(color: Colors.white)),
-          content: BlockPicker(
-            pickerColor: selected,
-            onColorChanged: (c) => selected = c,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Use Color'),
-            ),
-          ],
-        );
-      },
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => ImagePickerSheet(
+        title: 'Choose Avatar',
+        appImages: _avatarAssets,
+        onPicked: (pathOrAsset) {
+          setState(() {
+            _p = _p.copyWith(avatarAssetOrPath: pathOrAsset);
+          });
+        },
+      ),
     );
-    setState(() {
-      _p = _p.copyWith(
-        backgroundColorValue: selected.value,
-        usesImageBackground: false,
-      );
-    });
+  }
+
+  Future<void> _pickBackground() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => ImagePickerSheet(
+        title: 'Choose Background',
+        appImages: _backgroundAssets,
+        onPicked: (pathOrAsset) {
+          setState(() {
+            _p = _p.copyWith(
+              backgroundAssetOrPath: pathOrAsset,
+              usesImageBackground: true,
+            );
+          });
+        },
+      ),
+    );
   }
 
   Future<void> _save() async {
-    if (_form.currentState?.validate() ?? false) {
-      await context.read<ProfileStore>().save(_p);
-      if (!mounted) return;
-      Navigator.pop(context);
-    }
+    final store = context.read<ProfileStore>();
+    final updated = _p.copyWith(
+      name: _name.text.trim(),
+      title: _title.text.trim(),
+      phone: _phone.text.trim(),
+      email: _email.text.trim(),
+      website: _website.text.trim(),
+    );
+    await store.save(updated);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = ShareService.prettyText(_p); // Live formatted preview text
+    final bg = _p.usesImageBackground
+        ? DecorationImage(
+            image: loadImageProvider(_p.backgroundAssetOrPath),
+            fit: BoxFit.cover,
+          )
+        : null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Profile'),
+        actions: [
+          IconButton(
+            onPressed: _save,
+            icon: const Icon(Icons.check_rounded),
+            tooltip: 'Save',
+          )
+        ],
       ),
-      body: Form(
-        key: _form,
+      body: Container(
+        decoration: BoxDecoration(
+          color: _p.usesImageBackground ? null : Colors.black,
+          image: bg,
+        ),
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Avatar & background selectors
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: _p.avatarAssetOrPath.startsWith('/')
-                      ? FileImage(File(_p.avatarAssetOrPath))
-                      : AssetImage(_p.avatarAssetOrPath) as ImageProvider,
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _pickAvatar,
-                  icon: const Icon(Icons.photo),
-                  label: const Text('Change Avatar'),
-                ),
-                const Spacer(),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Image')),
-                    ButtonSegment(value: false, label: Text('Color')),
-                  ],
-                  selected: {_p.usesImageBackground},
-                  onSelectionChanged: (s) {
-                    setState(() {
-                      _p = _p.copyWith(usesImageBackground: s.first);
-                    });
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (_p.usesImageBackground)
-              Row(
+            // Avatar + actions
+            Center(
+              child: Stack(
+                alignment: Alignment.bottomRight,
                 children: [
-                  Expanded(
-                      child: Text(
-                    _p.backgroundAssetOrPath,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _pickBackgroundImage,
-                    icon: const Icon(Icons.image_outlined),
-                    label: const Text('Pick Background'),
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundImage: loadImageProvider(_p.avatarAssetOrPath),
                   ),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Color(_p.backgroundColorValue),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _pickBackgroundColor,
-                    icon: const Icon(Icons.palette_outlined),
-                    label: const Text('Pick Color'),
+                  FloatingActionButton.small(
+                    heroTag: 'editAvatar',
+                    onPressed: _pickAvatar,
+                    child: const Icon(Icons.camera_alt_rounded),
                   ),
                 ],
               ),
-
-            const Divider(height: 28),
-
-            // Core text fields
-            _t('Name',
-                initial: _p.name, onSaved: (v) => _p = _p.copyWith(name: v)),
-            _t('Title',
-                initial: _p.title, onSaved: (v) => _p = _p.copyWith(title: v)),
-            _t('Phone',
-                initial: _p.phone,
-                keyboard: TextInputType.phone,
-                onSaved: (v) => _p = _p.copyWith(phone: v)),
-            _t('Email',
-                initial: _p.email,
-                keyboard: TextInputType.emailAddress,
-                onSaved: (v) => _p = _p.copyWith(email: v)),
-            _t('Website (https://...)',
-                initial: _p.website,
-                onSaved: (v) => _p = _p.copyWith(website: v)),
-
-            _m('Address (multi-line)',
-                initial: _p.address,
-                onSaved: (v) => _p = _p.copyWith(address: v)),
-
-            const SizedBox(height: 8),
-            const Text('Socials (full URLs recommended)'),
-            _t('WhatsApp',
-                initial: _p.whatsapp,
-                onSaved: (v) => _p = _p.copyWith(whatsapp: v)),
-            _t('Facebook',
-                initial: _p.facebook,
-                onSaved: (v) => _p = _p.copyWith(facebook: v)),
-            _t('X/Twitter',
-                initial: _p.xTwitter,
-                onSaved: (v) => _p = _p.copyWith(xTwitter: v)),
-            _t('YouTube',
-                initial: _p.youtube,
-                onSaved: (v) => _p = _p.copyWith(youtube: v)),
-            _t('Instagram',
-                initial: _p.instagram,
-                onSaved: (v) => _p = _p.copyWith(instagram: v)),
-            _t('TikTok',
-                initial: _p.tiktok,
-                onSaved: (v) => _p = _p.copyWith(tiktok: v)),
-            _t('LinkedIn',
-                initial: _p.linkedin,
-                onSaved: (v) => _p = _p.copyWith(linkedin: v)),
-            _t('Snapchat',
-                initial: _p.snapchat,
-                onSaved: (v) => _p = _p.copyWith(snapchat: v)),
-            _t('Pinterest',
-                initial: _p.pinterest,
-                onSaved: (v) => _p = _p.copyWith(pinterest: v)),
-
-            const SizedBox(height: 8),
-            _m('Bank Details',
-                hint: 'Ac number: ...   Sc Code: ...',
-                initial: _p.bankDetails,
-                onSaved: (v) => _p = _p.copyWith(
-                    bankDetails: v?.isEmpty ?? true
-                        ? 'Ac number: 93087283   Sc Code: 09-01-35'
-                        : v)),
-            _m('About',
-                initial: _p.about, onSaved: (v) => _p = _p.copyWith(about: v)),
-
+            ),
             const SizedBox(height: 16),
-            ExpansionPanelList(
-              expansionCallback: (_, isOpen) {
-                setState(() => _showTextPreview = !isOpen);
-              },
-              children: [
-                ExpansionPanel(
-                  canTapOnHeader: true,
-                  isExpanded: _showTextPreview,
-                  headerBuilder: (_, __) => const ListTile(
-                    title: Text('Share as Text (Preview)'),
-                    subtitle: Text('Copy or share formatted message'),
-                  ),
-                  body: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: SelectableText(
-                            text,
-                            style: const TextStyle(
-                                fontFamily: 'monospace', fontSize: 13.5),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () =>
-                                  ShareService.copyFormattedText(context, _p),
-                              icon: const Icon(Icons.copy),
-                              label: const Text('Copy'),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: () => ShareService.shareText(_p),
-                              icon: const Icon(Icons.share),
-                              label: const Text('Share'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 22),
+            // Background action
             FilledButton.icon(
-              onPressed: () {
-                _form.currentState?.save();
-                _save();
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Save Changes'),
+              onPressed: _pickBackground,
+              icon: const Icon(Icons.wallpaper),
+              label: const Text('Change Background'),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 16),
+
+            // Basic fields
+            _field('Full name', _name, TextInputType.name),
+            _field('Title', _title, TextInputType.text),
+            _field('Phone', _phone, TextInputType.phone),
+            _field('Email', _email, TextInputType.emailAddress),
+            _field('Website', _website, TextInputType.url),
+
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Save'),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _t(
-    String label, {
-    String? initial,
-    String? hint,
-    TextInputType? keyboard,
-    required void Function(String) onSaved,
-  }) {
+  Widget _field(String label, TextEditingController c, TextInputType k) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        initialValue: initial ?? '',
-        keyboardType: keyboard,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-        ),
-        onSaved: (v) => onSaved(v?.trim() ?? ''),
-      ),
-    );
-  }
-
-  Widget _m(
-    String label, {
-    String? initial,
-    String? hint,
-    required void Function(String) onSaved,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        initialValue: initial ?? '',
-        maxLines: null,
-        minLines: 3,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-        ),
-        onSaved: (v) => onSaved(v?.trim() ?? ''),
+      child: TextField(
+        controller: c,
+        keyboardType: k,
+        decoration: InputDecoration(labelText: label),
       ),
     );
   }

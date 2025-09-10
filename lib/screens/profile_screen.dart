@@ -32,7 +32,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 builder: (_) => QrShareSheet(captureKey: _captureKey),
               );
             },
-            child: const Icon(Icons.qr_code_2_rounded),
+            child: const Icon(Icons
+                .ios_share_rounded), // ← changed from Icons.qr_code_2_rounded
           ),
           const SizedBox(height: 12),
           FloatingActionButton(

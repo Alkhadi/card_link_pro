@@ -1,188 +1,182 @@
-// lib/utils/pdf_generator.dart
 import 'dart:typed_data';
 
+import 'package:barcode/barcode.dart' as bc;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/profile.dart';
-import 'link_utils.dart';
+import '../payments/pay_utils.dart';
 
+/// Generates a single-page A4 PDF of the profile. Links are clickable.
+/// - Phone: tel:+E164
+/// - Email: mailto:
+/// - Web: https://
+/// - Pay: Universal link (cardlink.pro/pay)
+/// - EPC QR shown if IBAN available
 class PdfGenerator {
-  static Future<Uint8List> generate(Profile p) async {
+  static Future<Uint8List> build(Profile p) async {
     final pdf = pw.Document();
-    final bgColor = PdfColor.fromInt(p.backgroundColorValue);
 
-    final body = pw.TextStyle(fontSize: 14, color: PdfColors.white);
-    final heading = pw.TextStyle(
-      fontSize: 20,
-      fontWeight: pw.FontWeight.bold,
-      color: PdfColors.white,
+    final payLink = buildPayUniversalLink(
+      name: p.name,
+      sortCode: _scFromBank(p.bankDetails),
+      accountNumber: _accFromBank(p.bankDetails),
+      iban: _ibanFromBank(p.bankDetails),
+      bic: _bicFromBank(p.bankDetails),
     );
-    final small = pw.TextStyle(fontSize: 12, color: PdfColors.white);
 
-    pw.Widget _line(String emoji, String text, pw.TextStyle style) => pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('$emoji ', style: style),
-            pw.Expanded(child: pw.Text(text, style: style)),
-          ],
-        );
+    // Optional EPC QR if IBAN present
+    final iban = _ibanFromBank(p.bankDetails);
+    final epcText = (iban != null && iban.isNotEmpty)
+        ? buildEpcQrText(
+            name: p.name,
+            iban: iban,
+            bic: _bicFromBank(p.bankDetails),
+            amountEur: null,
+            reference: null,
+          )
+        : null;
 
-    pw.Widget _linkLine(
-      String emoji,
-      String href,
-      String label,
-      pw.TextStyle style,
-    ) =>
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('$emoji ', style: style),
-            pw.UrlLink(destination: href, child: pw.Text(label, style: style)),
-            pw.SizedBox(width: 8),
-            pw.Text(href, style: style),
-          ],
-        );
-
-    pw.Widget _contactsAndSocials(pw.Context context) {
-      final w = context.page.pageFormat.availableWidth;
-      final isWide = w > 460;
-
-      final contactsCol = pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          _line('📍', singleLine(p.address), body),
-          _linkLine('☎', 'tel:${normalizePhone(p.phone)}', 'Phone', body),
-          _linkLine('✉️', ensureMailto(p.email), 'Email', body),
-          _linkLine('🌐', normalizeUrl(p.website), 'Website', body),
-          if (p.bankDetails.trim().isNotEmpty) pw.SizedBox(height: 8),
-          if (p.bankDetails.trim().isNotEmpty)
-            pw.Container(
-              padding:
-                  const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: pw.BoxDecoration(
-                color: PdfColor.fromInt(0xB0000000),
-                borderRadius: pw.BorderRadius.circular(20),
-                border: pw.Border.all(color: PdfColors.white, width: 0.2),
-              ),
-              child: pw.Text(p.bankDetails, style: small),
-            ),
-        ],
+    pw.Widget? _epcQr() {
+      if (epcText == null) return null;
+      final qr = bc.Barcode.qrCode();
+      return pw.BarcodeWidget(
+        barcode: qr,
+        data: epcText,
+        width: 120,
+        height: 120,
+        drawText: false,
       );
-
-      final socials = [
-        ['💬 WhatsApp', p.whatsapp],
-        ['📘 Facebook', p.facebook],
-        ['✖️ X/Twitter', p.xTwitter],
-        ['▶️ YouTube', p.youtube],
-        ['📷 Instagram', p.instagram],
-        ['🎵 TikTok', p.tiktok],
-        ['💼 LinkedIn', p.linkedin],
-        ['👻 Snapchat', p.snapchat],
-        ['📌 Pinterest', p.pinterest],
-      ].where((e) => (e[1] ?? '').toString().trim().isNotEmpty).toList();
-
-      final socialsCol = pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text('— Social —', style: small),
-          pw.SizedBox(height: 6),
-          ...socials.map((s) => pw.UrlLink(
-                destination: normalizeUrl(s[1]!),
-                child: pw.Text('${s[0]}  ${normalizeUrl(s[1]!)}', style: body),
-              )),
-        ],
-      );
-
-      if (isWide) {
-        return pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(child: contactsCol),
-            pw.SizedBox(width: 24),
-            pw.Expanded(child: socialsCol),
-          ],
-        );
-      } else {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            contactsCol,
-            pw.SizedBox(height: 16),
-            socialsCol,
-          ],
-        );
-      }
     }
 
     pdf.addPage(
       pw.Page(
-        pageTheme: pw.PageTheme(
-          margin: pw.EdgeInsets.zero,
-          theme: pw.ThemeData.withFont(base: pw.Font.helvetica()),
-        ),
-        build: (ctx) => pw.Stack(
-          children: [
-            pw.Positioned.fill(child: pw.Container(color: bgColor)),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(24),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Header (placeholder avatar)
+        pageFormat: PdfPageFormat.a4,
+        build: (ctx) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.all(24),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(p.name,
+                    style: pw.TextStyle(
+                        fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                if (p.title.isNotEmpty) pw.Text(p.title),
+                pw.SizedBox(height: 12),
+
+                // Contacts
+                pw.Text('☎ ${p.phone}'),
+                _linkText('✉ ${p.email}', 'mailto:${p.email}'),
+                _linkText('🌐 ${p.website}', _ensureHttps(p.website)),
+                pw.SizedBox(height: 12),
+
+                pw.Text('📍 Address'),
+                pw.Text(p.address),
+                pw.SizedBox(height: 12),
+
+                // Socials
+                pw.Text('— Social —'),
+                ..._socialList(p),
+                pw.SizedBox(height: 12),
+
+                // Bank
+                pw.Text('🏦 Bank'),
+                pw.Text(_bankLine(p.bankDetails)),
+                pw.SizedBox(height: 4),
+                _linkText('Pay link', payLink.toString()),
+                pw.SizedBox(height: 8),
+                if (_epcQr() != null)
                   pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.Container(
-                        width: 64,
-                        height: 64,
-                        decoration: pw.BoxDecoration(
-                          shape: pw.BoxShape.circle,
-                          color: PdfColors.white,
-                        ),
-                      ),
-                      pw.SizedBox(width: 12),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(p.name, style: heading),
-                          pw.SizedBox(height: 4),
-                          pw.Text(p.title, style: body),
-                        ],
-                      ),
+                      pw.Text('EPC QR  (SEPA transfers)'),
+                      pw.SizedBox(width: 16),
+                      _epcQr()!,
                     ],
                   ),
-                  pw.SizedBox(height: 12),
-
-                  // Dark translucent box for contacts/socials
-                  pw.Container(
-                    decoration: pw.BoxDecoration(
-                      color: PdfColor.fromInt(0xB0000000),
-                      borderRadius: pw.BorderRadius.circular(8),
-                    ),
-                    padding: const pw.EdgeInsets.all(12),
-                    child: _contactsAndSocials(ctx),
-                  ),
-
-                  pw.SizedBox(height: 16),
-                  if (p.about.trim().isNotEmpty)
-                    pw.Text('— About —', style: small),
-                  if (p.about.trim().isNotEmpty) pw.SizedBox(height: 6),
-                  if (p.about.trim().isNotEmpty) pw.Text(p.about, style: body),
-
-                  pw.SizedBox(height: 12),
-                  pw.UrlLink(
-                    destination: mapUrlFromAddress(p.address),
-                    child: pw.Text(mapUrlFromAddress(p.address), style: small),
-                  ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
 
     return pdf.save();
+  }
+
+  static pw.Widget _linkText(String label, String url) {
+    return pw.UrlLink(
+      destination: url,
+      child: pw.Text(label,
+          style: const pw.TextStyle(decoration: pw.TextDecoration.underline)),
+    );
+  }
+
+  static String _ensureHttps(String url) {
+    final t = url.trim();
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    return 'https://$t';
+  }
+
+  static List<pw.Widget> _socialList(Profile p) {
+    final items = <String>[
+      p.whatsapp,
+      p.facebook,
+      p.xTwitter,
+      p.youtube,
+      p.instagram,
+      p.tiktok,
+      p.linkedin,
+      p.snapchat,
+      p.pinterest,
+    ];
+    final labels = <String>[
+      '💬 WhatsApp',
+      '📘 Facebook',
+      '✖ X/Twitter',
+      '▶ YouTube',
+      '📷 Instagram',
+      '🎵 TikTok',
+      '💼 LinkedIn',
+      '👻 Snapchat',
+      '📌 Pinterest',
+    ];
+
+    final out = <pw.Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      final u = items[i].trim();
+      if (u.isEmpty) continue;
+      out.add(_linkText('${labels[i]}', _ensureHttps(u)));
+    }
+    return out;
+  }
+
+  static String _bankLine(String bankDetails) => bankDetails.trim().isEmpty
+      ? 'Ac number: 93087283   Sc Code: 09-01-35'
+      : bankDetails.trim();
+
+  static String? _ibanFromBank(String bankDetails) {
+    final m = RegExp(r'IBAN[:\s]*([A-Z0-9]+)', caseSensitive: false)
+        .firstMatch(bankDetails);
+    return m?.group(1);
+  }
+
+  static String? _bicFromBank(String bankDetails) {
+    final m = RegExp(r'(BIC|SWIFT)[:\s]*([A-Z0-9]+)', caseSensitive: false)
+        .firstMatch(bankDetails);
+    return m?.group(2);
+  }
+
+  static String _scFromBank(String bankDetails) {
+    final m =
+        RegExp(r'(Sc|Sort(?:\s+)?Code)[:\s]*([0-9\-]+)', caseSensitive: false)
+            .firstMatch(bankDetails);
+    return (m?.group(2) ?? '00-00-00').replaceAll(' ', '');
+  }
+
+  static String _accFromBank(String bankDetails) {
+    final m = RegExp(r'(Ac|Account(?:\s+)?(No|Number)?)[:\s]*([0-9]+)',
+            caseSensitive: false)
+        .firstMatch(bankDetails);
+    return m?.group(3) ?? '00000000';
   }
 }

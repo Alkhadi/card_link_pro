@@ -8,10 +8,9 @@ import '../utils/link_utils.dart';
 
 /// Provides methods to prepare and share the profile in various formats.
 class ShareService {
-  /// Returns a formatted, copyable text representation of the profile. The
-  /// output mirrors the provided spec, including separators and emojis.
+  /// Returns a formatted, copyable text representation of the profile.
+  /// Normalizes URLs (https://), email (mailto:), and builds a maps link.
   static String prettyText(Profile p) {
-    final phoneNum = normalizePhone(p.phone);
     final maps = mapUrlFromAddress(p.address);
 
     final b = StringBuffer();
@@ -79,17 +78,19 @@ class ShareService {
   /// Shares the formatted text via the platform share sheet.
   static Future<void> shareText(Profile p) async {
     final text = prettyText(p);
-    await Share.share(text, subject: 'My CardLink Pro Profile');
+    await Share.share(
+      text,
+      subject: 'My CardLink Pro Profile',
+    );
   }
 
-  /// Shares the profile via email with attachments (PDF & image). Uses
-  /// share_plus to attach files; falls back to mailto if necessary.
+  /// Shares via email with attachments (PDF & image). Falls back to mailto if necessary.
   static Future<void> shareEmailWithAttachments({
     required String recipientEmail,
     required Uint8List pdfBytes,
     required Uint8List pngBytes,
   }) async {
-    final files = <XFile>[
+    final files = [
       XFile.fromData(pdfBytes,
           name: 'CardLink_Pro_Profile.pdf', mimeType: 'application/pdf'),
       XFile.fromData(pngBytes,
@@ -117,40 +118,35 @@ class ShareService {
 
   /// Shares a single image (PNG) via the platform share sheet.
   static Future<void> shareImage(Uint8List pngBytes) async {
-    await Share.shareXFiles(
-      [
-        XFile.fromData(pngBytes,
-            name: 'CardLink_Pro_Profile.png', mimeType: 'image/png')
-      ],
-      text: 'My CardLink Pro profile image',
-      subject: 'CardLink Pro — Image',
+    final file = XFile.fromData(
+      pngBytes,
+      name: 'CardLink_Pro_Profile.png',
+      mimeType: 'image/png',
     );
+    await Share.shareXFiles([file]);
   }
 
-  /// Shares both the PDF and image via the platform share sheet.
+  /// Shares both PDF and PNG together.
   static Future<void> sharePdfAndImage({
     required Uint8List pdfBytes,
     required Uint8List pngBytes,
   }) async {
-    await Share.shareXFiles([
+    final files = [
       XFile.fromData(pdfBytes,
           name: 'CardLink_Pro_Profile.pdf', mimeType: 'application/pdf'),
       XFile.fromData(pngBytes,
           name: 'CardLink_Pro_Profile.png', mimeType: 'image/png'),
-    ], text: 'CardLink Pro — my profile', subject: 'CardLink Pro — My Profile');
+    ];
+    await Share.shareXFiles(
+      files,
+      subject: 'CardLink Pro — My Profile',
+      text: 'My CardLink Pro profile attached.',
+    );
   }
 
-  /// Sends the profile text via SMS. Uses url_launcher for sms: URIs;
-  /// falls back to share sheet if not supported.
+  /// Sends a short SMS text (implementation in ShareService.smsText).
   static Future<void> smsText(Profile p) async {
-    final body = prettyText(p);
-    final encoded = Uri.encodeComponent(body);
-    final smsUri = Uri.parse('sms:?body=$encoded');
-    final can = await canLaunchUrl(smsUri);
-    if (can) {
-      await launchUrl(smsUri);
-    } else {
-      await Share.share(body, subject: 'CardLink Pro profile');
-    }
+    final text = prettyText(p); // or a shorter SMS-optimized version
+    await Share.share(text);
   }
 }
